@@ -2,7 +2,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
-int **Create_game_board(int size, int mines)
+
+int **Create_game_board(int size,int* rand_mine)
 {
     int i, x, y, **board;
 
@@ -20,13 +21,20 @@ int **Create_game_board(int size, int mines)
     // Generating the mines
     int rand_x, rand_y;
     srand(time(NULL));
-    for (i = 0; i < mines; i++)
-    { 
+    do
+    {
+   
+    
+    (*rand_mine) = rand() % ((size*size)/5);
+    }while(*rand_mine<2);
+    
+    for (i = 1; i <=*rand_mine ; i++)
+    {
         do
-        {   
-        rand_x = rand() % (size);
-        rand_y = rand() % (size);
-        }while(board[rand_x][rand_y]==-1);
+        {
+            rand_x = rand() % (size);
+            rand_y = rand() % (size);
+        } while (board[rand_x][rand_y] == -1);
         board[rand_x][rand_y] = -1;
 
         if (rand_y == 0)
@@ -162,7 +170,7 @@ void Delete_board(void **x, int size)
         free(x[i]);
     free(x);
 }
-void Display_game(void **x, int size, bool isint,int score,bool mine_encountered)
+void Display_game(void **x, int size, bool isint, int score, bool mine_encountered)
 {
     const cols = 50, rows = 8;
     int i, j;
@@ -183,12 +191,12 @@ void Display_game(void **x, int size, bool isint,int score,bool mine_encountered
     else
     {
         char **charmatrix = x;
-        if(mine_encountered==false)
+        if (mine_encountered == false)
         {
-        printf("\n\n");
-        for (j = 0; j <= cols-40; j++)
+            printf("\n\n");
+            for (j = 0; j <= cols - 40; j++)
                 printf(" ");
-        printf("Your score is : %d",score);
+            printf("Your score is : %d", score);
         }
         for (i = 0; i <= rows; i++)
             printf("\n");
@@ -203,125 +211,146 @@ void Display_game(void **x, int size, bool isint,int score,bool mine_encountered
     }
 }
 
-Read_player_input(char **board, int **r_board, int size, bool *mine_encountered,int *score)
+void Read_player_input(int *x, int *y, int size)
 {
-    int i, j, x, y;
     bool outofrange;
     do
     {
-        outofrange=false;
-        printf("\nPlease give me the x axis of the location that you want to sweep :\n");
-        scanf("%d", &x);
-        printf("\n\nPlease give me the y axis of the location that you want to sweep :\n");
-        scanf("%d", &y);
-        if((x<1)||(x>size)||(y<1)||(y>size))
+        outofrange = false;
+        printf("\nPlease give me the x axis of the location that you want to sweep (x starts from 1) :\n");
+        scanf("%d", x);
+        printf("\n\nPlease give me the y axis of the location that you want to sweep(y starts from 1) :\n");
+        scanf("%d", y);
+        if ((*x < 1) || (*x > size) || (*y < 1) || (*y > size))
         {
-        printf("The numbers are out of range please try another numbers");
-        outofrange=true;
+            printf("The numbers are out of range please try another numbers");
+            outofrange = true;
         }
     } while (outofrange);
-    for (i = y - 2; i <= y; i++)
-        for (j = x - 2; j <= x; j++)
-            if ((i >= 0) && (i < size) && (j >= 0) && (j < size))
-            {
-                if (r_board[i][j] == -1)
-                {
-                    board[i][j] = 'X';
-                    *mine_encountered = true;
-                }
-                else
-                {
-                    if(board[i][j]=='.')
-                    {
-                    board[i][j] = '0' + r_board[i][j];
-                    if(*mine_encountered==false)(*score)++;
-                    }
-                }
-            }
 }
-void Gameover(int score,bool gamewon)
+int highscore(int score)
 {
-    const cols=50;
-    printf("%c",7);
-    printf("\n\n");
-    for(int i=0;i<=cols;i++)
-    printf(" ");
-    printf("Game over\n\n");
-    for(int i=0;i<=cols;i++)
-    printf(" ");
-    if(gamewon){
-    printf("You've won\n\n");
+    int current_high_score;
+    FILE *f;
+    f=fopen("score.txt","r+");
+    if(fscanf(f,"%d",&current_high_score)==-1)
+    {
+    fprintf(f,"%d",0);
+    rewind(f);
+    current_high_score=0;
+    }
+    if(current_high_score<score)
+    {
+        fprintf(f,"%d",score);
+        return score;
+    }
+    else return current_high_score;
+
+
+
+
+
+
+
+}
+void Checkpoint(int x, int y, int **r_board, char **d_board, int *score, bool *mine_encountered, int size, bool zero)
+{
+    if (!zero && r_board[x][y] == -1)
+    {
+        d_board[x][y] = 'X';
+        *mine_encountered = true;
     }
     else
-    printf("You've lost\n\n");
-    for(int i=0;i<=cols;i++)
-    printf(" ");
-    printf("Your score is : %d",score);
-
-
-
-
-
-
-
-
-
-
+    {
+        if (d_board[x][y] == '.'&&  r_board[x][y]==0)
+        {
+            d_board[x][y] = '0' + r_board[x][y];
+            (*score)++;
+            if (x + 1 < size)
+                Checkpoint(x + 1, y, r_board, d_board, score, mine_encountered, size, true);
+            if (x - 1 > -1)
+                Checkpoint(x - 1, y, r_board, d_board, score, mine_encountered, size, true);
+            if (y + 1 < size)
+                Checkpoint(x, y + 1, r_board, d_board, score, mine_encountered, size, true);
+            if (y - 1 > -1)
+                Checkpoint(x, y - 1, r_board, d_board, score, mine_encountered, size, true);
+            
+        }
+        else if (!zero && d_board[x][y]=='.')
+        {
+            d_board[x][y] = '0' + r_board[x][y];
+            (*score)++;
+        }
+    }
 }
+void Gameover(int score, bool gamewon)
+{
+    const cols = 50;
+    printf("%c", 7);
+    printf("\n\n");
+    for (int i = 0; i <= cols; i++)
+        printf(" ");
+    printf("Game over\n\n");
+    for (int i = 0; i <= cols; i++)
+        printf(" ");
+    if (gamewon)
+    {
+        printf("You've won\n\n");
+    }
+    else
+        printf("You've lost\n\n");
+    for (int i = 0; i <= cols; i++)
+        printf(" ");
+    printf("Your score is : %d", score);
+    printf("\n");
+    for (int i = 0; i <= cols; i++)
+        printf(" ");
+    printf("The current highscore is : %d",highscore(score));
+}
+
 bool Replay()
 {
     int x;
     printf("\n\nDo you want to play again? :\n1-Yes     2-No\n");
-    scanf("%d",&x);
-    if(x==1)return true;
-    else return false;
-
-
-
-
-
-
-
-
-
-
+    scanf("%d", &x);
+    if (x == 1)
+        return true;
+    else
+        return false;
 }
 int main()
 {
-    int size, mine_number, **r_board,score=0;
+    int x, y, size, mine_number, **r_board, score = 0;
     char **d_board;
-    bool mine_encountered = false,won=false,replay=true;
+    bool mine_encountered = false, won = false, replay = true;
     do
     {
-    printf("Please enter the size of the board (the maximume size is 24 and the minimume is 3): \n");
-    scanf("%d", &size);
-    }while(size>24 || size<=2);
+        printf("Please enter the size of the board either 8 or 16 or 24 : \n");
+        scanf("%d", &size);
+    } while (size!=8 &&size!=16 && size!=24);
     system("cls");
-    do
-    {
-    printf("Please enter the number of mines in the board (the maximume number of mines is %d): \n",size/2);
-    scanf("%d", &mine_number);
-    }while(mine_number>size/2 || mine_number<=0);
     while (replay)
     {
         mine_encountered = false;
-        won=false;
-        replay=true;
-        score=0;
-    system("cls");
-    r_board = Create_game_board(size, mine_number);
-    d_board = Create_display_game(size);
-    Display_game(d_board, size, 0,score,mine_encountered);
-    while (mine_encountered == false && score<size*size-mine_number)
-    {
-        Read_player_input(d_board, r_board, size, &mine_encountered,&score);
+        won = false;
+        replay = true;
+        score = 0;
         system("cls");
-        Display_game(d_board, size, 0,score,mine_encountered);
-    }
-    if(mine_encountered==false)won=true;
-    Gameover(score,won);
-    Delete_board(r_board, size);
-    Delete_board(d_board, size);
-    replay=Replay();
+        r_board = Create_game_board(size,&mine_number);
+        d_board = Create_display_game(size);
+        Display_game(d_board, size, 0, score, mine_encountered);
+        while (mine_encountered == false && score < (size * size)-mine_number)
+        {
+            Read_player_input(&x, &y, size);
+            Checkpoint(x-1, y-1, r_board, d_board, &score, &mine_encountered, size, false);
+            system("cls");
+            Display_game(d_board, size, 0, score, mine_encountered);
+        }
+        if (mine_encountered == false)
+            won = true;
+        Gameover(score, won);
+        Delete_board(r_board, size);
+        Delete_board(d_board, size);
+        replay = Replay();
     }
 }
